@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leukocyte Identification Quiz</title>
+  <!-- Load the image manifest file -->
+  <script src="dataset.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .img-container {
+      width: 100%;
+      height: 270px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      border: 1px solid #475569;
+    }
+    .img-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .clue-box {
+      min-height: 48px;
+      font-size: 14px;
+      line-height: 1.4;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #cbd5e1;
+    }
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    button.opt-btn {
+      padding: 14px 8px;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      background: #334155;
+      color: #f8fafc;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.opt-btn:active { background: #475569; }
+    button.correct {
+      background: #16a34a !important;
+      color: #ffffff !important;
+      border-color: #16a34a !important;
+    }
+    button.incorrect {
+      background: #dc2626 !important;
+      color: #ffffff !important;
+      border-color: #dc2626 !important;
+    }
+    .action-btn {
+      width: 100%;
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .report-btn {
+      margin-top: 14px;
+      background: transparent;
+      color: #ef4444;
+      border: 1px dashed #475569;
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.2s;
+    }
+    .report-btn:hover {
+      background: #334155;
+      border-color: #ef4444;
+    }
+
+    #quiz-screen, #results-screen { display: none; }
+    .score-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .score-percentage { font-size: 40px; font-weight: 800; color: #38bdf8; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    
+    <!-- Quiz Screen -->
+    <div id="quiz-screen">
+      <div class="header">
+        <span>Leukocyte Exam</span>
+        <span id="progress">1 / 10</span>
+      </div>
+      
+      <div class="img-container">
+        <img id="leukocyte-img" src="" alt="Leukocyte Specimen">
+      </div>
+      
+      <div class="clue-box" id="clue-text">Identify the cell type</div>
+
+      <div class="options" id="options">
+        <button class="opt-btn" onclick="checkAnswer('Neutrophil')">Neutrophil</button>
+        <button class="opt-btn" onclick="checkAnswer('Eosinophil')">Eosinophil</button>
+        <button class="opt-btn" onclick="checkAnswer('Basophil')">Basophil</button>
+        <button class="opt-btn" onclick="checkAnswer('Monocyte')">Monocyte</button>
+        <button class="opt-btn" onclick="checkAnswer('Lymphocyte')" style="grid-column: span 2;">Lymphocyte</button>
+      </div>
+
+      <button class="action-btn" id="next-btn" style="display:none;" onclick="nextQuestion()">Next Question →</button>
+      <button class="report-btn" id="report-btn" onclick="reportImage()">⚠️ Report Bad Image & Skip</button>
+    </div>
+
+    <!-- Results Screen -->
+    <div class="results-screen" id="results-screen">
+      <div class="score-title">Quiz Complete</div>
+      <div class="score-percentage" id="final-score">0%</div>
+      <div class="clue-box" id="final-summary"></div>
+      <button class="action-btn" id="restart-btn" onclick="startQuiz()">Start New Quiz</button>
+    </div>
+  </div>
+
+  <script>
+    let pool = { neutrophil: [], eosinophil: [], basophil: [], monocyte: [], lymphocyte: [] };
+    let quizSequence = [];
+    let currentSlotIndex = 0;
+    let currentCellType = '';
+    let score = 0;
+
+    function shuffle(array) {
+      let arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!window.DATASET) {
+        alert("Missing dataset.js file! Please generate dataset.js in the same folder.");
+        return;
+      }
+      startQuiz();
+    });
+
+    function startQuiz() {
+      // Reload image paths from window.DATASET
+      pool = {
+        neutrophil: shuffle(window.DATASET.neutrophil || []),
+        eosinophil: shuffle(window.DATASET.eosinophil || []),
+        basophil: shuffle(window.DATASET.basophil || []),
+        monocyte: shuffle(window.DATASET.monocyte || []),
+        lymphocyte: shuffle(window.DATASET.lymphocyte || [])
+      };
+
+      const types = ['Neutrophil', 'Eosinophil', 'Basophil', 'Monocyte', 'Lymphocyte'];
+      quizSequence = [];
+      
+      // Add exactly 2 slots for each of the 5 cell types
+      types.forEach(type => quizSequence.push(type, type));
+      quizSequence = shuffle(quizSequence);
+
+      currentSlotIndex = 0;
+      score = 0;
+      document.getElementById('results-screen').style.display = 'none';
+      document.getElementById('quiz-screen').style.display = 'block';
+      showQuestion();
+    }
+
+    function showQuestion() {
+      if (currentSlotIndex >= 10) {
+        showResults();
+        return;
+      }
+
+      currentCellType = quizSequence[currentSlotIndex];
+      const key = currentCellType.toLowerCase();
+      
+      if (!pool[key] || pool[key].length === 0) {
+        alert(`No more images available for ${currentCellType}!`);
+        showResults();
+        return;
+      }
+
+      // Get next image path
+      const imagePath = pool[key].shift();
+
+      document.getElementById('progress').innerText = `${currentSlotIndex + 1} / 10`;
+      document.getElementById('leukocyte-img').src = imagePath;
+      document.getElementById('clue-text').innerText = 'Select the matching leukocyte:';
+      document.getElementById('clue-text').style.color = '#cbd5e1';
+      document.getElementById('next-btn').style.display = 'none';
+      document.getElementById('report-btn').style.display = 'block';
+
+      const buttons = document.querySelectorAll('.opt-btn');
+      buttons.forEach(btn => {
+        btn.disabled = false;
+        btn.className = 'opt-btn';
+      });
+    }
+
+    function reportImage() {
+      // Pulls another image of the SAME subtype without advancing the question index
+      showQuestion();
+    }
+
+    function checkAnswer(selectedType) {
+      const buttons = document.querySelectorAll('.opt-btn');
+      document.getElementById('report-btn').style.display = 'none';
+
+      buttons.forEach(btn => {
+        btn.disabled = true;
+        const btnText = btn.innerText.trim();
+        if (btnText === currentCellType) {
+          btn.classList.add('correct');
+        }
+        if (btnText === selectedType && selectedType !== currentCellType) {
+          btn.classList.add('incorrect');
+        }
+      });
+
+      const clueBox = document.getElementById('clue-text');
+      if (selectedType === currentCellType) {
+        score++;
+        clueBox.innerText = `✓ Correct (${currentCellType}).`;
+        clueBox.style.color = '#4ade80';
+      } else {
+        clueBox.innerText = `✗ Incorrect. Identified as: ${currentCellType}.`;
+        clueBox.style.color = '#f87171';
+      }
+
+      if (currentSlotIndex < 9) {
+        document.getElementById('next-btn').style.display = 'block';
+      } else {
+        setTimeout(showResults, 1500);
+      }
+    }
+
+    function nextQuestion() {
+      currentSlotIndex++;
+      showQuestion();
+    }
+
+    function showResults() {
+      document.getElementById('quiz-screen').style.display = 'none';
+      document.getElementById('results-screen').style.display = 'block';
+      
+      const percentage = Math.round((score / 10) * 100);
+      document.getElementById('final-score').innerText = `${score} / 10 (${percentage}%)`;
+      document.getElementById('final-summary').innerText = percentage >= 80 ? "Great job!" : "Review nuclear shapes and granule characteristics.";
+    }
+  </script>
+</body>
+</html>
